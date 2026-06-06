@@ -1,0 +1,5 @@
+{
+  "best_model": "TF-IDF + Logistic Regression",
+  "f1_score": 0.8947,
+  "accuracy": 0.8947
+}
