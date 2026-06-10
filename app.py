@@ -245,11 +245,15 @@ elif page == "Data Explorer":
         st.dataframe(df[['text', 'sentiment', 'clean_text']], use_container_width=True)
         
         # Data Distribution
-        st.subheader("📊 Sentiment Distribution")
-        fig = px.pie(names=['Positive', 'Negative'], 
-                     values=[stats['positive_reviews'], stats['negative_reviews']],
+        st.subheader("📊 Sentiment Class Distribution")
+        dist_df = pd.DataFrame({
+            'Sentiment': ['Positive', 'Negative'],
+            'Count': [stats['positive_reviews'], stats['negative_reviews']]
+        })
+        fig = px.bar(dist_df, x='Sentiment', y='Count', 
+                     color='Sentiment',
                      color_discrete_sequence=['#2ecc71', '#e74c3c'],
-                     hole=0.4)
+                     title='Sentiment Class Distribution — Bar Chart')
         st.plotly_chart(fig, use_container_width=True)
 
 # -----------------------------------------------------------------------------
@@ -305,32 +309,51 @@ elif page == "Visualizations":
                 st.plotly_chart(fig, use_container_width=True)
                 
         with tab3:
-            st.subheader("Model Comparison")
+            st.subheader("Model Performance Comparison")
             
-            # Extract accuracies
-            models_acc = []
+            metrics_data = []
             for name, metrics in eval_results.items():
-                models_acc.append({"Model": name, "Accuracy": metrics['accuracy']})
+                metrics_data.append({
+                    "Model": name.replace('TF-IDF + ', 'TFIDF: ').replace('Word2Vec + ', 'W2V: '),
+                    "Accuracy": metrics['accuracy'],
+                    "Precision": metrics['precision'],
+                    "Recall": metrics['recall'],
+                    "F1-Score": metrics['f1_score']
+                })
                 
-            df_acc = pd.DataFrame(models_acc).sort_values('Accuracy', ascending=False)
+            df_metrics = pd.DataFrame(metrics_data)
+            df_melted = df_metrics.melt(id_vars='Model', var_name='Metric', value_name='Score')
             
-            fig = px.bar(df_acc, x='Model', y='Accuracy', color='Accuracy',
-                         color_continuous_scale='Viridis', text_auto='.2%',
-                         title='Accuracy Comparison Across All Models')
-            fig.update_yaxes(range=[0.7, 1.0]) # Adjust range to better show differences
+            fig = px.bar(df_melted, x='Model', y='Score', color='Metric', barmode='group',
+                         title='Model Performance Comparison (Accuracy, Precision, Recall, F1-Score)',
+                         color_discrete_sequence=px.colors.qualitative.Safe)
+            fig.update_yaxes(range=[0.7, 1.0])
             st.plotly_chart(fig, use_container_width=True)
             
-            # Confusion Matrix for best model
-            best_model_name = df_acc.iloc[0]['Model']
-            st.subheader(f"Confusion Matrix: {best_model_name} (Best Model)")
+            st.markdown("---")
+            st.subheader("Confusion Matrices")
             
-            cm = eval_results[best_model_name]['confusion_matrix']
-            cm_matrix = np.array(cm)
+            col1, col2 = st.columns(2)
             
-            fig_cm = px.imshow(cm_matrix, text_auto=True, color_continuous_scale='Blues',
-                               labels=dict(x="Predicted Label", y="True Label"),
-                               x=['Negative', 'Positive'], y=['Negative', 'Positive'])
-            st.plotly_chart(fig_cm)
+            with col1:
+                st.markdown("#### Logistic Regression")
+                lr_key = "TF-IDF + Logistic Regression" if "TF-IDF + Logistic Regression" in eval_results else None
+                if lr_key:
+                    cm_lr = np.array(eval_results[lr_key]['confusion_matrix'])
+                    fig_lr = px.imshow(cm_lr, text_auto=True, color_continuous_scale='Blues',
+                                       labels=dict(x="Predicted Label", y="True Label"),
+                                       x=['Negative', 'Positive'], y=['Negative', 'Positive'])
+                    st.plotly_chart(fig_lr, use_container_width=True)
+                    
+            with col2:
+                st.markdown("#### Multinomial Naive Bayes")
+                nb_key = "TF-IDF + Naive Bayes" if "TF-IDF + Naive Bayes" in eval_results else None
+                if nb_key:
+                    cm_nb = np.array(eval_results[nb_key]['confusion_matrix'])
+                    fig_nb = px.imshow(cm_nb, text_auto=True, color_continuous_scale='Reds',
+                                       labels=dict(x="Predicted Label", y="True Label"),
+                                       x=['Negative', 'Positive'], y=['Negative', 'Positive'])
+                    st.plotly_chart(fig_nb, use_container_width=True)
 
 # -----------------------------------------------------------------------------
 # Page 5: Model Info

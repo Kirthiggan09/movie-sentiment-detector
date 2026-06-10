@@ -22,6 +22,9 @@ import warnings
 import numpy as np
 import pandas as pd
 from collections import Counter
+import matplotlib.pyplot as plt
+import seaborn as sns
+from wordcloud import WordCloud
 
 # NLP
 import nltk
@@ -348,7 +351,89 @@ def save_artifacts(models_tfidf, models_w2v, results_tfidf, results_w2v,
     sample = df[['text', 'label', 'sentiment', 'clean_text']].sample(500, random_state=42)
     sample.to_csv(os.path.join(DATA_DIR, 'sample_reviews.csv'), index=False)
 
-    print("   ✅ All artifacts saved!")
+    # -------------------------------------------------------------------------
+    # GENERATE PLOTS FOR REPORT
+    # -------------------------------------------------------------------------
+    print("   📊 Generating plots for report...")
+    PLOT_DIR = os.path.join(os.path.dirname(__file__), 'plots')
+    os.makedirs(PLOT_DIR, exist_ok=True)
+    
+    # 1. Sentiment Class Distribution
+    plt.figure(figsize=(8, 6))
+    sns.countplot(data=df, x='sentiment', palette=['#e74c3c', '#2ecc71'])
+    plt.title('Sentiment Class Distribution')
+    plt.xlabel('Sentiment')
+    plt.ylabel('Count')
+    plt.savefig(os.path.join(PLOT_DIR, '1_sentiment_distribution.png'))
+    plt.close()
+
+    # 2. Word Clouds
+    pos_text = ' '.join(df[df['label'] == 1]['clean_text'].dropna())
+    neg_text = ' '.join(df[df['label'] == 0]['clean_text'].dropna())
+    
+    wc_pos = WordCloud(width=800, height=400, background_color='white', colormap='Greens').generate(pos_text)
+    plt.figure(figsize=(10, 5))
+    plt.imshow(wc_pos, interpolation='bilinear')
+    plt.axis('off')
+    plt.title('Positive Reviews Word Cloud')
+    plt.savefig(os.path.join(PLOT_DIR, '2_wordcloud_positive.png'))
+    plt.close()
+    
+    wc_neg = WordCloud(width=800, height=400, background_color='white', colormap='Reds').generate(neg_text)
+    plt.figure(figsize=(10, 5))
+    plt.imshow(wc_neg, interpolation='bilinear')
+    plt.axis('off')
+    plt.title('Negative Reviews Word Cloud')
+    plt.savefig(os.path.join(PLOT_DIR, '2_wordcloud_negative.png'))
+    plt.close()
+
+    # 3. Top 20 Most Frequent Words
+    plt.figure(figsize=(10, 8))
+    sns.barplot(x=list(stats['top_all_words'].values())[:20], y=list(stats['top_all_words'].keys())[:20], palette='Blues_d')
+    plt.title('Top 20 Most Frequent Words')
+    plt.xlabel('Frequency')
+    plt.ylabel('Words')
+    plt.savefig(os.path.join(PLOT_DIR, '3_top_20_words.png'))
+    plt.close()
+
+    # 4 & 5. Confusion Matrices
+    def plot_cm(model_key, filename, title, cmap):
+        if model_key in all_results:
+            cm = np.array(all_results[model_key]['confusion_matrix'])
+            plt.figure(figsize=(6, 5))
+            sns.heatmap(cm, annot=True, fmt='d', cmap=cmap, xticklabels=['Negative', 'Positive'], yticklabels=['Negative', 'Positive'])
+            plt.title(title)
+            plt.xlabel('Predicted')
+            plt.ylabel('Actual')
+            plt.savefig(os.path.join(PLOT_DIR, filename))
+            plt.close()
+
+    plot_cm("TF-IDF + Logistic Regression", '4_confusion_matrix_lr.png', 'Logistic Regression Confusion Matrix', 'Blues')
+    plot_cm("TF-IDF + Naive Bayes", '5_confusion_matrix_nb.png', 'Multinomial Naive Bayes Confusion Matrix', 'Reds')
+
+    # 6. Model Performance Comparison
+    metrics_data = []
+    for model_name, res in all_results.items():
+        metrics_data.append({
+            'Model': model_name.replace('TF-IDF + ', 'TFIDF:\n').replace('Word2Vec + ', 'W2V:\n'),
+            'Accuracy': res['accuracy'],
+            'Precision': res['precision'],
+            'Recall': res['recall'],
+            'F1-Score': res['f1_score']
+        })
+    df_metrics = pd.DataFrame(metrics_data)
+    df_melted = df_metrics.melt(id_vars='Model', var_name='Metric', value_name='Score')
+    
+    plt.figure(figsize=(14, 8))
+    sns.barplot(data=df_melted, x='Model', y='Score', hue='Metric', palette='viridis')
+    plt.title('Model Performance Comparison')
+    plt.ylim(0.7, 1.0)
+    plt.legend(loc='lower right')
+    plt.tight_layout()
+    plt.savefig(os.path.join(PLOT_DIR, '6_model_performance.png'))
+    plt.close()
+
+    print("   ✅ All artifacts and plots saved!")
     print(f"   🏆 Best model: {best_model_name} (F1: {best_info['f1_score']:.4f})")
 
 
