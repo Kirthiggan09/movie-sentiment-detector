@@ -127,11 +127,11 @@ if page == "Home / About":
     - Learn about the machine learning models in the **Model Info** section.
     
     ### 👥 Team Members
-    *Your Team Name Here*
-    - Member 1
-    - Member 2
-    - Member 3
-    - Member 4
+    **Team LEO**
+    - Niveeshana
+    - Kavee
+    - Kirthiggan
+    - Dakshina
     """)
     
     st.info("👈 Use the sidebar to navigate through the application.")
